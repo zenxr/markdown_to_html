@@ -1,5 +1,7 @@
 *.md
+!README.md
 *.html
 config.py
 __pycache__/*
 *.pyc
+html/*
