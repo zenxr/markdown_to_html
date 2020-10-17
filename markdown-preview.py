@@ -1,6 +1,7 @@
 import argparse
 import os
 import webbrowser
+import html
 try:
     import config
 except:
@@ -83,24 +84,36 @@ class EmphasisFilter(IgnoreCodeBlockFilterBase):
         super(EmphasisFilter, self).__init__()
         self.in_emphasis = False
         self.emphasis_toggle = lambda: '<i>' if not self.in_emphasis else '</i>'
+        self.tokens = ['*', '_']
 
     def filter_line(self, line):
-        while('*' in line):
-            line = line.replace('*', self.emphasis_toggle(), 1)
+        match = self.get_match(line)
+        while(match):
+            line = line.replace(match, self.emphasis_toggle(), 1)
             self.in_emphasis = not self.in_emphasis
+            match = self.get_match(line)
         return line
+
+    def get_match(self, line):
+        return next((token for token in self.tokens if token in line), None)
 
 class BoldFilter(IgnoreCodeBlockFilterBase):
     def __init__(self):
         super(BoldFilter, self).__init__()
         self.in_bold = False
         self.bold_toggle = lambda: '<b>' if not self.in_bold else '</b>'
+        self.tokens = ['**', '__']
 
     def filter_line(self, line):
-        while('**' in line):
-            line = line.replace('**', self.bold_toggle(), 1)
+        match = self.get_match(line)
+        while(match):
+            line = line.replace(match, self.bold_toggle(), 1)
             self.in_bold = not self.in_bold
+            match = self.get_match(line)
         return line
+
+    def get_match(self, line):
+        return next((token for token in self.tokens if token in line), None)
 
 class InlineCodeFilter(IgnoreCodeBlockFilterBase):
     def __init__(self):
@@ -111,13 +124,21 @@ class InlineCodeFilter(IgnoreCodeBlockFilterBase):
     def filter_line(self, line):
         while('`' in line):
             line = line.replace('`', self.inline_code_toggle(), 1)
+            # replace intermediate text with escaped unicode
+            if not self.inline_code:
+                try:
+                    inline_code, after_code = codeline.split('`', 1)
+                    line = '%s`%s' % (html.escape(inline_code), after_code)
+                except:
+                    pass
             self.inline_code = not self.inline_code
         return line
     
 class HeaderFilter(IgnoreCodeBlockFilterBase):
     def __init__(self):
         super(HeaderFilter, self).__init__()
-        self.tokens = [  
+        self.tokens = [
+            ['######', '<h6>', '</h6>\n'],
             ['#####', '<h5>', '</h5>\n'],
             ['####', '<h4>', '</h4>\n'],
             ['###', '<h3>', '</h3>\n'],
@@ -136,21 +157,26 @@ class ListFilter(IgnoreCodeBlockFilterBase):
     def __init__(self):
         super(ListFilter, self).__init__()
         self.indent_level = 0
+        self.tokens = ['* ', '- ', '+ ']
     
     def filter_line(self, line):
-        if line.lstrip().startswith('* '):
-            curr_indent_level = len(line.split('* ', 1)[0])
+        match = next((t for t in self.tokens if line.lstrip().startswith(t)), None)
+        if match:
+            curr_indent_level = len(line.split(match, 1)[0])
             if curr_indent_level > self.indent_level:
-                line = line.replace('* ', '<ul><li>', 1).rstrip() + '</li>\n'
+                line = line.replace(match, '<ul><li>', 1).rstrip() + '</li>\n'
             elif curr_indent_level < self.indent_level:
-                line = line.replace('* ', '</ul><li>').rstrip() + '</li>\n'
+                line = line.replace(match, '</ul><li>').rstrip() + '</li>\n'
             else:
-                line = line.replace('* ', '<li>').rstrip() + '</li>\n'
+                line = line.replace(match, '<li>').rstrip() + '</li>\n'
             self.indent_level = curr_indent_level
         return line
 
+#TODO
+# class OrderedListFilter(IgnoreCodeBlockFilterBase):
+
 class MdToHtml:
-    filters = [EmptyLineFilter(), CodeBlockFilter(), ListFilter(), HeaderFilter(), BoldFilter(), EmphasisFilter()]
+    filters = [EmptyLineFilter(), CodeBlockFilter(), InlineCodeFilter(), ListFilter(), HeaderFilter(), BoldFilter(), EmphasisFilter()]
 
     @staticmethod
     def convert(infile):
