@@ -13,4 +13,4 @@ Create your own `config.py` file, mimicking the format of `example_config.py` to
 ### ToDo:
 
 - [x] There's a bug currently where text inside inlined codeblocks aka `these` would still be processed by other filters...
-- [ ] Need to more properly filter emphasis and bold (via looking for `['\n__', '\n**']` and then checking for `['__ ', '** ']`
+- [ ] Need to more properly filter emphasis and bold (via looking for `['\n__', '\n**', etc]` and then checking for `['__ ', '** ', etc]`
